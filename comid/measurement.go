@@ -378,7 +378,7 @@ func (o *Mval) RegisterExtensions(exts extensions.Map) error {
 	return nil
 }
 
-// GetExtensions returns pervisouosly registered extension
+// GetExtensions returns previously registered extension
 func (o *Mval) GetExtensions() extensions.IMapValue {
 	return o.Extensions.IMapValue
 }
