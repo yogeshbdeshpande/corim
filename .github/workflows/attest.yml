@@ -1,0 +1,60 @@
+name: Attest SBOM and Vulnerabilities
+
+on:
+  push:
+    branches: [main]  # Change if your default branch is different
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🛒 Checkout source
+        uses: actions/checkout@v4
+
+      - name: 🔧 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: ⚙️ Build Go binary
+        run: |
+          mkdir -p dist
+          go build -o dist/corim ./cmd/corim
+
+      - name: 📦 Install Syft & Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: 📄 Generate SBOM (SPDX)
+        run: |
+          syft dist/corim -o spdx-json > dist/corim.spdx.json
+
+      - name: 🔍 Scan for Vulnerabilities
+        run: |
+          grype dist/corim -o json > dist/corim.vuln.json
+
+      - name: 🧪 Upload artifacts (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: attest-files
+          path: dist/*.json
+
+      - name: 🔐 Attest SBOM to Rekor
+        uses: github/actions/attest@v2
+        with:
+          subject-path: dist/corim
+          predicate-type: spdx
+          predicate-path: dist/corim.spdx.json
+
+      - name: 🔐 Attest Vulnerabilities to Rekor
+        uses: github/actions/attest@v2
+        with:
+          subject-path: dist/corim
+          predicate-type: vuln
+          predicate-path: dist/corim.vuln.json
